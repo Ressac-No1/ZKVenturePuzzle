@@ -1,16 +1,16 @@
 import factory from "./levels-factory";
 
 it("throws if given a size that is not a perfect square", () => {
-  expect(() => factory(13)).toThrowError();
+  expect(() => factory(13)).toThrow();
 });
 
 it("throws if given a size below 1", () => {
-  expect(() => factory(0)).toThrowError();
-  expect(() => factory(-1)).toThrowError();
+  expect(() => factory(0)).toThrow();
+  expect(() => factory(-1)).toThrow();
 });
 
 it("throws if given a size above 100", () => {
-  expect(() => factory(101)).toThrowError();
+  expect(() => factory(101)).toThrow();
 });
 
 it("generates random levels of size 1", () => {
