@@ -1,4 +1,5 @@
-# ZK Venture Puzzle:
+# ZK Venture Puzzle
+![Game_Screenshot](/public/screenshot.png)
 
 ![https://s3.eu-central-1.amazonaws.com/ovi-projects/15-puzzle/demo.gif](https://s3.eu-central-1.amazonaws.com/ovi-projects/15-puzzle/demo.gif)
 
