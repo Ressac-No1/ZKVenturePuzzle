@@ -1,8 +1,6 @@
 # ZK Venture Puzzle
 ![Game_Screenshot](/public/screenshot.png)
 
-![https://s3.eu-central-1.amazonaws.com/ovi-projects/15-puzzle/demo.gif](https://s3.eu-central-1.amazonaws.com/ovi-projects/15-puzzle/demo.gif)
-
 A new flagship puzzle game with ZK proof of gameplay authenticity and score evaluation is coming to ZkVerify ecosystem!
 
 Try to collect as much value of treasure as possible in limited moves! Be careful that some tiles have arrow restrictions to indicate that only some moving directions are allowed when stepping at those tiles. After a successful gameplay, your score will be authenticated by a ZK proof and then submitted on ZkVerify chain to verify it.
