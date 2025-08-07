@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   Snackbar,
+  Typography,
 } from "@material-ui/core";
 import React, { Component } from "react";
 import {
@@ -15,51 +16,85 @@ import {
   GAME_PAUSED,
   GAME_STARTED,
 } from "../lib/game-status";
-import { distanceBetween, getTileCoords, invert } from "../lib/utils";
+import { isAdjacent, getTileCoords, invert } from "../lib/utils";
 import Grid from "./Grid";
 import Menu from "./Menu";
+import VerificationKey from "./puzzle_verify_key";
 
 class Game extends Component {
   constructor(props) {
     super(props);
 
-    const { numbers, tileSize, gridSize, moves = 0, seconds = 0 } = props;
-    const tiles = this.generateTiles(numbers, gridSize, tileSize);
+    const { tileSize, gridColumns, gridRows, dirLimits, treasureTypes, treasureValueByType, currentTileIdx, moves = 0, moveLimit = 1, seconds = 0, score = 0 } = props;
+    const { steps = [currentTileIdx] } = props;
+    const tiles = this.generateTiles(dirLimits, treasureTypes, tileSize, gridColumns, gridRows);
 
     this.state = {
+      walletAccount: "",
       tiles,
+      currentTileIdx,
       gameState: GAME_IDLE,
       moves,
+      steps,
+      moveLimit,
       seconds,
+      score,
+      ZKProof: {},
       dialogOpen: false,
       snackbarOpen: false,
       snackbarText: "",
+      ZKProofGenerated: false,
+      ZKProofVerified: false
     };
+
+    this.onConnectWallet = this.onConnectWallet.bind(this);
+    this.UNSAFE_componentWillReceiveProps = this.UNSAFE_componentWillReceiveProps.bind(this);
+    this.onGenerateZKProof = this.onGenerateZKProof.bind(this);
+    this.onVerifyZKProof = this.onVerifyZKProof.bind(this);
 
     document.addEventListener("keydown", this.keyDownListener);
   }
 
+  async onConnectWallet() {
+    if (window.ethereum) {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (accounts && Array.isArray(accounts)) {
+        this.setState({
+          walletAccount: accounts[0]
+        });
+      } else
+        throw new Error('Unable to connect to an Ethereum wallet');
+    }
+  }
+
   UNSAFE_componentWillReceiveProps(nextProps) {
-    const { tileSize, gridSize } = this.props;
-    const newTiles = this.generateTiles(nextProps.numbers, gridSize, tileSize);
+    clearInterval(this.timerId);
+
+    const { tileSize, currentTileIdx, gridColumns, gridRows } = this.props;
+    const newTiles = this.generateTiles(nextProps.dirLimits, nextProps.treasureTypes, tileSize, gridColumns, gridRows);
 
     this.setState({
       gameState: GAME_IDLE,
       tiles: newTiles,
+      currentTileIdx,
+      steps: [currentTileIdx],
       moves: 0,
+      score: 0,
       seconds: 0,
+      ZKProof: {},
+      ZKProofGenerated: false,
+      ZKProofVerified: false
     });
-
-    clearInterval(this.timerId);
   }
 
   // End game by pressing CTRL + ALT + F
   keyDownListener = (key) => {
     if (key.ctrlKey && key.altKey && key.code === "KeyF") {
-      const { original, gridSize, tileSize } = this.props;
-      const solvedTiles = this.generateTiles(original, gridSize, tileSize).map(
-        (tile, index) => {
-          tile.number = index + 1;
+      const { emptyDirLimits, emptyTreasureTypes, tileSize, gridColumns, gridRows } = this.props;
+      const emptyTiles = this.generateTiles(emptyDirLimits, emptyTreasureTypes, tileSize, gridColumns, gridRows).map(
+        (tile, idx) => {
+          tile.dirLimit = 0;
+          tile.treasureType = 0;
           return Object.assign({}, tile);
         }
       );
@@ -68,8 +103,10 @@ class Game extends Component {
 
       this.setState({
         gameState: GAME_OVER,
-        tiles: solvedTiles,
+        tiles: emptyTiles,
         dialogOpen: true,
+        ZKProofGenerated: false,
+        ZKProofVerified: false
       });
     }
   };
@@ -86,32 +123,22 @@ class Game extends Component {
     });
   };
 
-  generateTiles(numbers, gridSize, tileSize) {
+  generateTiles(dirLimits, treasureTypes, tileSize, gridColumns, gridRows) {
     const tiles = [];
+    if (dirLimits.length !== gridColumns * gridRows || treasureTypes.length !== gridColumns * gridRows)
+      return tiles;
 
-    numbers.forEach((number, index) => {
-      tiles[index] = {
-        ...getTileCoords(index, gridSize, tileSize),
+    dirLimits.forEach((dirLimit, idx) => {
+      tiles[idx] = {
+        ...getTileCoords(idx, tileSize, gridColumns, gridRows),
         width: this.props.tileSize,
         height: this.props.tileSize,
-        number,
+        dirLimit,
+        treasureType: treasureTypes[idx]
       };
     });
 
     return tiles;
-  }
-
-  isGameOver(tiles) {
-    const correctedTiles = tiles.filter((tile) => {
-      return tile.tileId + 1 === tile.number;
-    });
-
-    if (correctedTiles.length === this.props.gridSize ** 2) {
-      clearInterval(this.timerId);
-      return true;
-    } else {
-      return false;
-    }
   }
 
   addTimer() {
@@ -126,6 +153,36 @@ class Game extends Component {
     }, 1000);
   }
 
+  onResetEverythingClick = async () => {
+    await this.props.onResetClick();
+    clearInterval(this.timerId);
+    this.setState({
+      moves: 0,
+      currentTileIdx: this.props.currentTileIdx || this.state.steps[0],
+      steps: this.props.currentTileIdx ? [this.props.currentTileIdx] : this.state.steps.slice(0, 1),
+      score: 0,
+      seconds: 0,
+      ZKProof: {},
+      ZKProofGenerated: false,
+      ZKProofVerified: false
+    });
+  }
+/*
+  onNewGameClick = async () => {
+    await this.props.onNewClick(); 
+    clearInterval(this.timerId);
+    this.setState({
+      moves: 0,
+      currentTileIdx: this.props.currentTileIdx || this.state.steps[0],
+      steps: this.props.currentTileIdx ? [this.props.currentTileIdx] : this.state.steps.slice(0, 1),
+      score: 0,
+      seconds: 0,
+      ZKProof: {},
+      ZKProofGenerated: false,
+      ZKProofVerified: false
+    });
+  }
+*/
   onPauseClick = () => {
     this.setState((prevState) => {
       let newGameState = null;
@@ -134,7 +191,7 @@ class Game extends Component {
       if (prevState.gameState === GAME_STARTED) {
         clearInterval(this.timerId);
         newGameState = GAME_PAUSED;
-        newSnackbarText = "The game is currently paused.";
+        newSnackbarText = "Game paused!";
       } else {
         this.setTimer();
         newGameState = GAME_STARTED;
@@ -162,43 +219,154 @@ class Game extends Component {
       this.setTimer();
     }
 
-    const { gridSize } = this.props;
-
-    // Find empty tile
-    const emptyTile = this.state.tiles.find((t) => t.number === gridSize ** 2);
-    const emptyTileIndex = this.state.tiles.indexOf(emptyTile);
-
-    // Find index of tile
-    const tileIndex = this.state.tiles.findIndex(
-      (t) => t.number === tile.number
+    const { gridColumns, gridRows } = this.props;
+    // Find the tile's index
+    const tileIdx = this.state.tiles.findIndex(
+      (t) => t.tileId === tile.tileId
     );
 
-    // Is this tale neighbouring the zero tile? If so, switch them.
-    const d = distanceBetween(tile, emptyTile);
-    if (d.neighbours) {
-      let t = Array.from(this.state.tiles).map((t) => ({ ...t }));
+    const currentTile = this.state.tiles[this.state.currentTileIdx];
+    // Is this tile neighbouring the current tile?
+    const adj = isAdjacent(currentTile, tile);
 
-      invert(t, emptyTileIndex, tileIndex, [
-        "top",
-        "left",
-        "row",
-        "column",
-        "tileId",
-      ]);
+    if (adj.adjacent) {
+      const isAllowedDirection =
+        currentTile.dirLimit <= 0 ||
+	currentTile.dirLimit >= 15 ||
+	adj.direction == 0 ||
+	(currentTile.dirLimit & (1 << (adj.direction - 1))) > 0;
 
-      const checkGameOver = this.isGameOver(t);
+      // If the direction of move is allowed, make a move
+      if (isAllowedDirection) {
+        let newMoves = this.state.moves + 1;
+        let newSteps = this.state.steps;
+        newSteps.push(tileIdx);
+        let newScore = this.state.score;
+        // If treasure exists at the destination of move, collect it
+        if (tile.treasureType > 0 && tile.treasureType <= this.props.treasureValueByType.length) {
+          newScore += this.props.treasureValueByType[tile.treasureType - 1];
+        }
+        let newTiles = Array.from(this.state.tiles).map((t) => ({ ...t }));
+        newTiles[tileIdx].treasureType = 0;
+	
+        // If number of moves reaches the limit, end the game
+        const isGameOver = newMoves >= this.state.moveLimit;
+        if (isGameOver)
+          clearInterval(this.timerId);
 
-      this.setState({
-        gameState: checkGameOver ? GAME_OVER : GAME_STARTED,
-        tiles: t,
-        moves: this.state.moves + 1,
-        dialogOpen: checkGameOver ? true : false,
-      });
+        this.setState({
+          gameState: isGameOver ? GAME_OVER : GAME_STARTED,
+          tiles: newTiles,
+          currentTileIdx: tileIdx,
+          moves: newMoves,
+          steps: newSteps,
+          score: newScore,
+          dialogOpen: isGameOver ? true : false,
+        });
+      }
     }
   };
 
+  onGenerateZKProof = async () => {
+    const gameplayRawData = {
+      walletAccount: this.state.walletAccount,
+      gridC: this.props.gridColumns,
+      gridR: this.props.gridRows,
+      maxMove: this.props.moveLimit,
+      dirLimits: this.props.dirLimits,
+      treasureTypes: this.props.treasureTypes,
+      treasureValueByType: this.props.treasureValueByType,
+      steps: this.state.steps,
+    };
+
+    try {
+      const res = await fetch("/api/generateProof", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(gameplayRawData),
+      });
+
+      const resData = await res.json();
+      const { proof, publicSignals } = resData;
+
+      this.setState({
+        ZKProof: { proof, publicSignals },
+        ZKProofGenerated: true,
+        snackbarOpen: true,
+        snackbarText: `Generated ZK proof for this gameplay, with total score: ${publicSignals[0]}`
+      });
+    } catch (err) {
+      // Proof generation error handling
+      throw err;
+    }
+  }
+
+  onVerifyZKProof = async () => {
+    try {
+      let vkRegistered = false;
+      // TODO: Not available to register vKey on relayer at this moment
+      /*
+      const vkRegRes = await fetch("/api/registerVk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          proofType: "groth16",
+          proofOptions: {
+            library: "snarkjs",
+            curve: "bn128"
+          },
+        }),
+      });
+
+      const vkRegResData = await vkRegRes.json();
+      if (vkRegResData.vKey) {
+        vkRegistered = true;
+      */
+        const { proof, publicSignals } = this.state.ZKProof;
+        const submissionRes = await fetch("api/submitProof", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            proofType: "groth16",
+            vkRegistered,
+            proofOptions: {
+              library: "snarkjs",
+              curve: "bn128"
+            },
+            proofData: {
+              proof,
+              publicSignals,
+              //vk: vkRegResData.vKey
+              vk: VerificationKey
+            },
+          }),
+        });
+
+        const submissionResData = await submissionRes.json();
+        if (submissionResData.verified) {
+          this.setState({
+            ZKProofVerified: true,
+            snackbarOpen: true,
+            snackbarText: `Proof verified on chain! Transaction hash: ${submissionResData.txHash}`
+          });
+        }
+      /*} else {
+         console.log('Unable to verify proof, no registered vKey');
+      }*/
+    } catch (err) {
+      // Proof verification error handling
+      throw err;
+    }
+  }
+
   render() {
-    const { gridSize, tileSize, onResetClick, onNewClick } = this.props;
+    const { tileSize, gridColumns, gridRows, onNewClick } = this.props;
 
     return (
       <div
@@ -209,23 +377,38 @@ class Game extends Component {
         }}
       >
         <Menu
+          walletAccount={this.state.walletAccount}
           seconds={this.state.seconds}
           moves={this.state.moves}
-          onResetClick={onResetClick}
+          moveLimit={this.state.moveLimit}
+          score={this.state.score}
+          onResetClick={this.onResetEverythingClick}
           onPauseClick={this.onPauseClick}
           onNewClick={onNewClick}
+          onGenerateZKProof={this.onGenerateZKProof}
+          onVerifyZKProof={this.onVerifyZKProof}
           gameState={this.state.gameState}
+          ZKProofGenerated={this.state.ZKProofGenerated}
+          ZKProofVerified={this.state.ZKProofVerified}
         />
         <Grid
-          gridSize={gridSize}
           tileSize={tileSize}
+          gridColumns={gridColumns}
+          gridRows={gridRows}
           tiles={this.state.tiles}
+          currentTileIdx={this.state.currentTileIdx}
           onTileClick={this.onTileClick}
         />
+        <Button onClick={this.onConnectWallet} disabled={this.state.walletAccount}>
+          <Typography component="span" variant="button">
+	    {this.state.walletAccount ? `Connected to ${this.state.walletAccount}` : 'Connect wallet'}
+          </Typography>
+        </Button>
         <Dialog open={this.state.dialogOpen} onClose={this.handleDialogClose}>
           <DialogTitle>Congratulations!</DialogTitle>
           <DialogContent>
-            You've solved the puzzle in {this.state.moves} moves in{" "}
+            You reach the maximum limit of moves, game over.
+	    You've collect treasure with a total value of {this.state.score} in{" "}
             {this.state.seconds} seconds!
           </DialogContent>
           <DialogActions>

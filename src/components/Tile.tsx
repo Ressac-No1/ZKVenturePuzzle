@@ -2,8 +2,8 @@ import { makeStyles } from "@material-ui/styles";
 import React from "react";
 
 const useStyles = makeStyles({
-  root: ({ width, height, correct, left, top, visible }: Props) => ({
-    display: visible ? "flex" : "none",
+  root: ({ width, height, left, top, isCurrent }: Props) => ({
+    display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
@@ -14,13 +14,14 @@ const useStyles = makeStyles({
     left,
     top,
     cursor: "pointer",
-    backgroundColor: correct ? "#226666" : "#D4726A",
+    backgroundColor: isCurrent ? "#226666" : "#D4726A",
+    color: '#FFD1AA',
     transitionProperty: "top, left, background-color",
     transitionDuration: ".300s",
     transitionTimingFunction: "ease-in",
   }),
 
-  tileNumber: {
+  tileIcon: {
     color: "#FFD1AA",
     fontSize: "1.8em",
     userSelect: "none",
@@ -29,23 +30,49 @@ const useStyles = makeStyles({
 
 type Props = {
   tileId: number;
-  number: number;
+  isCurrent: boolean;
   onClick: (props: Props) => void;
   width: number;
   height: number;
-  correct: boolean;
   left: number;
   top: number;
-  visible?: boolean;
+  dirLimit: number;
+  treasureType: number;
 };
 
+const arrowsByDirLimit = (dirLimit: number) => {
+  if (dirLimit <= 0 || dirLimit >= 15)
+    return "";
+  else
+    return (
+      ((dirLimit & 8) ? '⇧' : '') +
+      ((dirLimit & 4) ? '⇨' : '') +
+      ((dirLimit & 2) ? '⇩' : '') +
+      ((dirLimit & 1) ? '⇦' : '')
+    );
+}
+
+const treasureIcon = (treasureType: number) => {
+  switch (treasureType) {
+    case 1:
+      return '🪙';
+    case 2:
+      return '💰';
+    case 3:
+      return '💎';
+    default:
+      return '';
+  }
+}
+
 const Tile = (props: Props) => {
-  const { number = 0, onClick } = props;
+  const { dirLimit = 0, treasureType = 0, onClick } = props;
   const styles = useStyles(props);
 
   return (
     <div className={styles.root} onClick={() => onClick(props)}>
-      <span className={styles.tileNumber}>{number}</span>
+      {arrowsByDirLimit(dirLimit)}
+      <span className={styles.tileIcon}>{treasureIcon(treasureType)}</span>
     </div>
   );
 };

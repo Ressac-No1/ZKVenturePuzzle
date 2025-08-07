@@ -17,8 +17,8 @@ const useStyles = makeStyles({
   },
   tile: (props) => {
     return {
-      width: `${props.tileSize * props.gridSize}px`,
-      height: `${props.tileSize * props.gridSize}px`,
+      width: `${props.tileSize * props.gridColumns}px`,
+      height: `${props.tileSize * props.gridRows}px`,
       position: "relative",
       textAlign: "center",
     };
@@ -26,20 +26,19 @@ const useStyles = makeStyles({
 });
 
 const Grid = (props) => {
-  const { tiles, onTileClick, gridSize } = props;
+  const { tiles, onTileClick, gridColumns, gridRows, currentTileIdx } = props;
   const styles = useStyles(props);
 
   return (
     <div className={styles.root}>
       <div className={styles.tile}>
-        {tiles.map((tile, index) => {
+        {tiles.map((tile, idx) => {
           return (
             <Tile
               {...tile}
-              key={`tile-${index}`}
-              correct={tile.tileId + 1 === tile.number}
+              key={`tile-${idx}`}
+              isCurrent={idx === currentTileIdx}
               onClick={onTileClick}
-              visible={tile.number < gridSize ** 2}
             />
           );
         })}

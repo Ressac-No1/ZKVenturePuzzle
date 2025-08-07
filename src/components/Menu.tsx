@@ -9,7 +9,10 @@ import {
 import { makeStyles } from "@material-ui/core/styles";
 import {
   Alarm,
+  Check,
   CompareArrows,
+  ConfirmationNumber,
+  MonetizationOn,
   Pause,
   PlayArrow,
   PowerSettingsNew,
@@ -17,7 +20,7 @@ import {
 } from "@material-ui/icons";
 import React from "react";
 import MediaQuery from "react-responsive";
-import { GameStatus, GAME_PAUSED, GAME_STARTED } from "../lib/game-status";
+import { GameStatus, GAME_PAUSED, GAME_STARTED, GAME_OVER } from "../lib/game-status";
 
 const useStyles = makeStyles({
   root: {
@@ -37,22 +40,36 @@ const useStyles = makeStyles({
 });
 
 type Props = {
+  walletAccount: string;
   seconds: number;
   moves: number;
+  moveLimit: number;
+  score: number;
   onResetClick: () => void;
   onPauseClick: () => void;
   onNewClick: () => void;
+  onGenerateZKProof: () => void;
+  onVerifyZKProof : () => void;
   gameState: GameStatus;
+  ZKProofGenerated: boolean
+  ZKProofVerified: boolean;
 };
 
 const Menu = (props: Props) => {
-  const {
+  const { 
+    walletAccount,
     seconds = 0,
     moves = 0,
+    moveLimit = 1,
+    score = 0,
     onResetClick,
     onPauseClick,
     onNewClick,
+    onGenerateZKProof,
+    onVerifyZKProof,
     gameState,
+    ZKProofGenerated,
+    ZKProofVerified
   } = props;
   const classes = useStyles(props);
 
@@ -61,10 +78,34 @@ const Menu = (props: Props) => {
       <Toolbar className={classes.toolbar}>
         <MediaQuery query="(min-width: 772px)">
           <Typography className={classes.title} variant="h6" component="div">
-            React Puzzle Games - 15 Puzzle
+            ZK Venture Puzzle - for ZkVerify
           </Typography>
         </MediaQuery>
 
+        <Button
+          aria-label="Generate zero-knowledge proof"
+          onClick={onGenerateZKProof}
+          startIcon={<ConfirmationNumber />}
+          disabled={!walletAccount || gameState !== GAME_OVER || ZKProofGenerated}
+        >
+          <MediaQuery query="(min-width: 772px)">
+            <Typography component="span" variant="button">
+              Generate Proof
+            </Typography>
+          </MediaQuery>
+        </Button>
+        <Button
+          aria-label="Verify zero-knowledge proof"
+          onClick={onVerifyZKProof}
+          startIcon={<Check />}
+          disabled={!walletAccount || gameState !== GAME_OVER || !ZKProofGenerated || ZKProofVerified}
+        >
+          <MediaQuery query="(min-width: 772px)">
+            <Typography component="span" variant="button">
+              Verify Proof
+            </Typography>
+          </MediaQuery>
+        </Button>
         <Button
           aria-label="Start a new game"
           onClick={onNewClick}
@@ -118,7 +159,7 @@ const Menu = (props: Props) => {
             </>
           }
         />
-        <Chip
+       <Chip
           avatar={
             <Avatar>
               <CompareArrows />
@@ -129,7 +170,22 @@ const Menu = (props: Props) => {
               <MediaQuery query="(min-width: 772px)" component="span">
                 Moves so far:
               </MediaQuery>
-              <Typography component="span">{moves}</Typography>
+              <Typography component="span">{moves}/{moveLimit}</Typography>
+            </>
+          }
+        />
+        <Chip
+          avatar={
+            <Avatar>
+              <MonetizationOn />
+            </Avatar>
+          }
+          label={
+            <>
+              <MediaQuery query="(min-width: 772px)" component="span">
+                Total value collected:
+              </MediaQuery>
+              <Typography component="span">{score}</Typography>
             </>
           }
         />

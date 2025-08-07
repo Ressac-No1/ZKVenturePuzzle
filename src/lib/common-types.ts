@@ -6,10 +6,15 @@ export type TileDescriptor = {
   tileId: number;
 };
 
-export type TileAdjancency = {
-  neighbours: boolean;
-  distance: {
-    rows: number;
-    columns: number;
-  };
+export enum Direction {
+  Same = 0,
+  Left,
+  Down,
+  Right,
+  Up
+};
+
+export type TileAdjacency = {
+  adjacent: boolean;
+  direction: Direction;
 };

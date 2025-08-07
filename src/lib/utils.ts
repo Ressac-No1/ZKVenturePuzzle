@@ -1,61 +1,50 @@
-import { TileAdjancency, TileDescriptor } from "./common-types";
+import { Direction, TileAdjacency, TileDescriptor } from "./common-types";
 
 /**
- * Return an Array containing all numbers such that 0 = n <= length in
- * ascending order.
- * @param {Number} length Number of items in the resulting Array
- * @returns {Array} Array of numbers
+ * Return an array of number, in which every number is 0 with probability of 1/2 or a random integer within [1..M) with total probability of 1/2
+ * @param {Number} size Array size
+ * @param {Number} valRange The M in the description above
+ * @returns {Array} Resulting random array
  */
-export const range = (length: number) => {
-  return Array.from({ length }, (_, i: number) => i + 1);
-};
-
-/**
- * Get random slice from an array based on Fisher Yates shuffle.
- * https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
- * @param {Array} arr Input Array
- * @param {Number} size Slice size
- * @returns {Array} Resulting slice
- */
-export const randomSubarray = (arr: number[], size: number) => {
-  let shuffled = arr.slice(0),
-    i = arr.length,
-    temp,
-    index;
-  while (i--) {
-    index = Math.floor((i + 1) * Math.random());
-    temp = shuffled[index];
-    shuffled[index] = shuffled[i];
-    shuffled[i] = temp;
-  }
-
-  return shuffled.slice(0, size);
-};
+export const randomArray = (size: number, valRange: number) => {
+  let arr = Array(size).fill(0);
+  return arr.map(x => Math.floor(Math.random() * 2) * (Math.floor(Math.random() * valRange) + 1));
+}
 
 /**
  * Returns an Object containing grid coordinates based on the index
  * in an Array.
  * @param {Number} index Position of an item in an Array
- * @param {Number} gridSize Size of the Grid
  * @param {Number} tileSize Size of a Tile, in pixels, to calculate the absolute
  * positioning within the Grid
+ * @param {Number} gridColumns Number of columns of the Grid
+ * @param {Number} gridRows Number of rows of the Grid
  * @return {TileDescriptor} Object containing coordinates
  */
 export const getTileCoords = (
   index: number,
-  gridSize: number,
-  tileSize: number
+  tileSize: number,
+  gridColumns: number,
+  gridRows: number
 ): TileDescriptor => {
-  if (!Number.isInteger(gridSize) || gridSize < 1) {
-    throw new Error(`Cannot get coords from tile with gridSize: <${gridSize}>`);
-  }
-
   if (!Number.isInteger(tileSize) || tileSize < 1) {
     throw new Error(`Cannot get coords from tile with tileSize: <${tileSize}>`);
   }
 
-  const column = index % gridSize;
-  const row = (index / gridSize) << 0;
+  if (!Number.isInteger(gridColumns) || gridColumns < 1) {
+    throw new Error(`Cannot get coords from tile with gridColumns: <${gridColumns}>`);
+  }
+
+  if (!Number.isInteger(gridRows) || gridRows < 1) {
+    throw new Error(`Cannot get coords from tile with gridRows: <${gridRows}>`);
+  }
+
+  if (!Number.isInteger(index) || index < 0 || index >= gridColumns * gridRows) {
+    throw new Error(`Cannot get coords from tile at this index: <${index}>, not an integer or out of range in the grid`);
+  }
+
+  const column = index % gridColumns;
+  const row = (index / gridColumns) << 0;
 
   return {
     column,
@@ -67,31 +56,38 @@ export const getTileCoords = (
 };
 
 /**
- * Calculate distance between two sets of coordinates
+ * Determine whether two tiles are adjacent and their relative direction
  *
  * @param  {TileDescriptor} tileACoords Coordinates of Tile A
  * @param  {TileDescriptor} tileBCoords Coordinates of Tile B
- * @returns {TileAdjancency} Result
+ * @returns {TileAdjacency} Result
  */
-export const distanceBetween = (
+export const isAdjacent = (
   tileACoords: TileDescriptor,
   tileBCoords: TileDescriptor
-): TileAdjancency => {
+): TileAdjacency => {
   const sameRow = tileACoords.row === tileBCoords.row;
   const sameColumn = tileACoords.column === tileBCoords.column;
   const columnDiff = tileACoords.column - tileBCoords.column;
   const rowDiff = tileACoords.row - tileBCoords.row;
-  const diffColumn = Math.abs(columnDiff) === 1;
-  const diffRow = Math.abs(rowDiff) === 1;
-  const sameRowDiffColumn = sameRow && diffColumn;
-  const sameColumnDiffRow = sameColumn && diffRow;
+  const adjacentColumn = Math.abs(columnDiff) === 1;
+  const adjacentRow = Math.abs(rowDiff) === 1;
+  const sameRowAdjacentColumn = sameRow && adjacentColumn;
+  const sameColumnAdjacentRow = sameColumn && adjacentRow;
+  const BLeftOfA = tileBCoords.column < tileACoords.column;
+  const BDownOfA = tileBCoords.row > tileACoords.row;
+  const BRightOfA = tileBCoords.column > tileACoords.column;
+  const BUpOfA = tileBCoords.row < tileACoords.row;
 
   return {
-    neighbours: sameRowDiffColumn || sameColumnDiffRow,
-    distance: {
-      rows: rowDiff,
-      columns: columnDiff,
-    },
+    adjacent: sameRowAdjacentColumn || sameColumnAdjacentRow,
+    direction: (
+      (BLeftOfA && Direction.Left) ||
+      (BDownOfA && Direction.Down) ||
+      (BRightOfA && Direction.Right) ||
+      (BUpOfA && Direction.Up) ||
+      Direction.Same
+    )
   };
 };
 

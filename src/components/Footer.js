@@ -25,22 +25,22 @@ const Footer = () => {
   return (
     <footer className={styles.root}>
       <a
-        href="https://github.com/react-puzzle-games/15-puzzle/"
+        href="https://github.com/Ressac-No1/ZKVenturePuzzle/"
         target="_blank"
         rel="noopener noreferrer"
       >
         <GitHubIcon />
       </a>
       <p>
-        Made with <span className={styles.heart}>♥</span> by{" "}
+        Made with <span className={styles.heart}>♥</span> for ZkVerify by{" "} 
         <a
           className={styles.link}
-          href="https://github.com/react-puzzle-games"
+          href="https://github.com/Ressac-No1"
           rel="noopener noreferrer"
           target="_blank"
         >
           {" "}
-          React Puzzle Games
+          RSSCNo1
         </a>
       </p>
     </footer>
